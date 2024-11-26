@@ -1,30 +1,368 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
+// import HelloWorld from './components/HelloWorld.vue'
+// import VueHorizontal from "vue-horizontal" uninstall
+// import { fetchWeatcherData } from './weatherApi';
+import { onMounted, ref, computed, watch } from 'vue'
+
+interface WeatherApiResponse {
+  latitude: number;
+  longitude: number;
+  generationtime_ms: number;
+  utc_offset_seconds: number;
+  timezone: string;
+  timezone_abbreviation: string;
+  elevation: number;
+  current_units: {
+    time: string,
+    interval: string,
+    temperature_2m: string,
+    is_day: string,
+    weather_code: string
+  };
+  current: {
+    time: string;
+    interval: number;
+    temperature_2m: number;
+    is_day: number;
+    weather_code: number;
+  };
+  hourly_units: {
+    time: string;
+    temperature_2m: string;
+    weather_code: string;
+  };
+  hourly: {
+    time: string[];
+    temperature_2m: number[];
+    weather_code: number[];
+  };
+  daily_units: {
+    time: string;
+    weather_code: string;
+    temperature_2m_max: string;
+    temperature_2m_min: string;
+  };
+  daily: {
+    time: string[];
+    weather_code: number[];
+    temperature_2m_max: number[];
+    temperature_2m_min: number[];   
+
+  };
+}
+
+interface City {
+  latitude: number;
+  longitude: number;
+  cityName: string
+}
+
+const viewType = ref<string>('details')
+const searchResults  =ref<City[]>([]);
+const searchBarValue = ref<string>('')
+const currentLocationFlag = ref<boolean>(true)
+const likedCities = ref<City[]>([]);
+const cityName = ref<string>('')
+const latitude = ref<number>(0)
+const longitude = ref<number>(0)
+const weatcherAPIData = ref<WeatherApiResponse | null>(null);
+
+const DEFAULT_COORDINATES = {
+  initLatitude: 51.5142,
+  initLongitude: 7.4684,
+  initCityName: 'Dortmund'
+};
+
+const addCity = (city: City) => {
+  if (!likedCities.value.some((entry) => entry.cityName === city.cityName)) {
+    likedCities.value.push(city);
+  }
+}
+
+// rounding the temperature to one digit
+const transformNumber = (temperature: number) => {
+  return Math.round(Number(temperature))
+}
+
+// combine the daily data arrays into one
+const combinedDailyData = computed(() => {
+  if (weatcherAPIData.value && weatcherAPIData.value.daily) {
+    const { time, weather_code, temperature_2m_max, temperature_2m_min } = weatcherAPIData.value.daily;
+    
+    return time.map((t, index) => ({
+      time: t,
+      weather_code: weather_code[index],
+      temperature_2m_max: transformNumber(temperature_2m_max[index]),
+      temperature_2m_min: transformNumber(temperature_2m_min[index]),
+    }));
+  }
+
+  return [];
+});
+
+// combine the daily data arrays into one
+const combinedHourlyData = computed(() => {
+  if (weatcherAPIData.value && weatcherAPIData.value.daily) {
+    const { time, weather_code, temperature_2m } = weatcherAPIData.value.hourly;
+
+    const currentHour = new Date().getHours();
+    let counter = 0
+    
+    const formatHour = (hour: number) => (hour < 10 ? `0${hour}` : `${hour}`);
+
+    return time.map((t, index) => {
+      const hour = new Date(t).getHours();
+
+      return {
+        time: formatHour(hour),
+        weather_code: weather_code[index],
+        temperature_2m: transformNumber(temperature_2m[index]),
+      }
+    })
+    .filter(item => {
+      if (parseInt(item.time) <= 23 && counter < 1) {
+        if (parseInt(item.time) == 23) {
+          counter = 1
+        }
+        return parseInt(item.time) >= currentHour
+      }
+
+      if (counter == 1) {
+        return parseInt(item.time)
+      }
+    });
+  }
+  return [];
+});
+
+const getDayName = (isoDate: string): string => {
+  const date = new Date(isoDate);
+
+  return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date);
+}
+
+const getBrowserCoordinates = async (): Promise<{ latitude: number; longitude: number } | null> => {
+  if (!navigator.geolocation) {
+    alert('Geolocation is not supported by your browser.');
+    return null;
+  }
+
+  // console.log(navigator.geolocation.getCurrentPosition(showPosition))
+
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        resolve({ latitude, longitude });
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        alert('Unable to retrieve your location.');
+        reject(null);
+      }
+    )
+  })
+}
+
+const getCoordinates =  async (locationName: string): Promise<City[] | null> => {
+  if (!locationName) {
+    alert('Search bar is empty!');
+    return null
+  }
+
+  const numberOfItems = 8
+
+  try {
+    const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${locationName}&count=${numberOfItems}&language=en&format=json`)
+    const data = await response.json()
+
+    if (data.results && data.results.length > 0) {
+      const results = data.results.map((result: any) => ({
+        latitude: result.latitude,
+        longitude: result.longitude,
+        cityName: result.name,
+      }))
+
+      return results;
+    } else {
+      alert('Location not found!');
+      return null
+    } 
+  } catch(error) {
+    console.error('Error fetching coordinates:', error);
+    return null;
+  }
+}
+
+const fetchAPI = async (latitude: number, longitude: number): Promise<void> => {
+  await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,is_day,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=5`)
+  .then(async(response) => {
+    const data: WeatherApiResponse = await response.json()
+    weatcherAPIData.value = data
+  })
+}
+
+const searchLocation = async (): Promise<void> => {
+  const locationName = searchBarValue.value;
+  const coordinates = await getCoordinates(locationName);
+  
+  if (coordinates) {
+    searchResults.value = coordinates
+  }
+
+  // const { latitude, longitude, cityName: fetchedCityName } = coordinates ?? DEFAULT_COORDINATES;
+  // cityName.value = fetchedCityName
+  // await fetchAPI(latitude, longitude);
+  return
+}
+
+const showDetailsView = async (latitude: number, longitude: number, city: string): Promise<void> => {
+  viewType.value = "details"
+  cityName.value = city
+  currentLocationFlag.value = false
+
+  await fetchAPI(latitude, longitude)
+}
+
+const returnToSearchView = () => {
+  viewType.value = "search"
+}
+
+const showSavedCities = () => {
+  searchResults.value = likedCities.value.reverse()
+}
+
+watch(searchBarValue, async () => {
+  if (searchBarValue.value.length > 3) {
+    await searchLocation()
+  }
+})
+
+const showDetailsForCurrentLocation = async () => {
+  const currentCoordinates = await getBrowserCoordinates();
+  if (currentCoordinates) {
+    currentLocationFlag.value = true
+    viewType.value = "details"
+
+    // thanks to this its possible add your current location to your favorites with the name 'your location'
+    cityName.value = "Your location"
+
+    await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
+  }
+}
+
+onMounted( async () => {
+  const currentCoordinates = await getBrowserCoordinates();
+
+  if (currentCoordinates) {
+    cityName.value = "Your location"
+    latitude.value = currentCoordinates.latitude
+    longitude.value = currentCoordinates.longitude
+
+    await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
+  } else {
+    const { initLatitude, initLongitude, initCityName } = DEFAULT_COORDINATES;
+    cityName.value = initCityName
+    latitude.value = initLatitude
+    longitude.value = initLongitude
+
+    await fetchAPI(initLatitude, initLongitude)
+  }
+  
+  // fetchWeatcherData()
+})
 </script>
 
 <template>
-  <div class="">
-    <a href="https://vite.dev" target="_blank">
-      <img src="/vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
+  <div class="w-[640px] bg-slate-100 p-4">
+    <h1 class="font-bold pb-4">Weather App</h1>
+    <div v-if="viewType === 'search'">
+      <div>
+        <div class="flex gap-4">
+          <input type="text" v-model="searchBarValue" placeholder="Type city" class="basis-4/5 p-3 rounded-xl" />
+          <button @click="searchLocation" type="submit" class="basis-1/5 bg-slate-400 rounded-xl">search</button>
+        </div>
+      </div>
+      <div class="mt-2">
+        <div class="flex gap-2">
+          <div>
+            <button @click="showSavedCities()" class="p-2 font-semibold rounded-xl bg-sky-100">Show saved</button>
+          </div>
+          <div>
+            <button @click="showDetailsForCurrentLocation()" class="p-2 font-semibold rounded-xl bg-sky-100">Use my location</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <ul class="pt-6">
+          <li v-for="(city, index) in searchResults" :key="index" class="bg-slate-200 rounded-xl w-full mb-2">
+            <div @click="showDetailsView(city.latitude, city.longitude, city.cityName)" class="py-4 cursor-default hover:bg-slate-200">
+              <div>
+                <span class="font-semibold pl-2">{{ city.cityName }}</span>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div v-if="viewType === 'details'" class="flex flex-col gap-8">
+      <div class="flex justify-between">
+        <div>
+          <button @click="returnToSearchView()">Return to search</button>
+        </div>
+        <div>
+          <button @click="addCity({latitude, longitude, cityName})">Save</button>
+        </div>
+      </div>
+      <div>
+        <div>
+          <span class="text-4xl font-semibold">
+            {{ cityName }}:
+            {{ weatcherAPIData ? transformNumber(weatcherAPIData?.current.temperature_2m) : "n/a" }}&deg;
+          </span>
+          <p v-if="currentLocationFlag" class="text-sm text-gray-400">Data for your current location</p>
+        </div>
+      </div>
+      <div>
+        <p class="text-sm font-medium text-gray-400 pb-2">HOURLY FORECAST</p>
+        <div class="overflow-x-auto flex gap-4">
+          <div v-for="(item, index) in combinedHourlyData" :key="index" class="flex-shrink-0 bg-sky-300 aspect-square w-28">
+            <div class="flex flex-col space-y-4">
+              <div class="flex justify-center">
+                {{ index == 0 ? "now" : item.time }}
+              </div>
+              <div class="flex justify-center">
+                {{ item.weather_code }}
+              </div>
+              <div class="flex justify-center">
+                <span class="font-medium">{{ item.temperature_2m }}&deg;</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="text-sm font-medium text-gray-400 pb-2">DAILY FORECAST</p>
+        <ul>
+          <li v-for="(day, index) in combinedDailyData" :key="index" class="bg-slate-200 border-b border-gray-300 last:border-b-0">
+            <div class="flex py-4 text-xl">
+              <div class="basis-1/3">
+                <span class="font-medium">{{ getDayName(day.time) }}</span> 
+              </div>
+              <div class="basis-1/3 tracking-wide">
+                <span><strong>min.</strong> {{ day.temperature_2m_min }}°C</span>
+              </div>
+              <div class="basis-1/3 tracking-wide">
+                <span><strong>max.</strong> {{ day.temperature_2m_max }}°C</span>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
   </div>
-  <HelloWorld msg="Vite + Vue" />
+  <!-- <HelloWorld msg="Vite + Vue" /> -->
 </template>
 
-<style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
-</style>
+<!-- <style scoped>
+</style> -->
