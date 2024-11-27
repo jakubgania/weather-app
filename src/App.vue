@@ -76,8 +76,12 @@ const addCity = () => {
     likedCities.value.push({
       latitude: latitude.value,
       longitude: longitude.value,
-      cityName:cityName.value,
+      cityName: cityName.value,
     });
+
+    alert(`You have added ${cityName.value} to your watch list ✅`)
+  } else {
+    alert('This city is already added ⚠️')
   }
 }
 
@@ -238,12 +242,18 @@ const returnToSearchView = () => {
 }
 
 const showSavedCities = () => {
-  searchResults.value = likedCities.value.reverse()
+  if (likedCities.value.length == 0) {
+    alert("You haven't added any city yet")
+  } else {
+    searchResults.value = likedCities.value.reverse()
+  }
 }
 
 watch(searchBarValue, async () => {
   if (searchBarValue.value.length > 3) {
     await searchLocation()
+  } else {
+    searchResults.value = []
   }
 })
 
@@ -305,27 +315,30 @@ onMounted( async () => {
     <h1 class="font-bold pb-4">Weather App</h1>
     <div v-if="viewType === 'search'">
       <div>
-        <div class="flex gap-4">
-          <input type="text" v-model="searchBarValue" placeholder="Type city" class="basis-4/5 p-3 rounded-xl" />
-          <button @click="searchLocation" type="submit" class="basis-1/5 bg-slate-400 rounded-xl">search</button>
+        <div class="relative">
+          <input type="text" v-model="searchBarValue" placeholder="Type city" class="w-full p-3 pr-12 placeholder-black font-bold rounded-xl bg-slate-50 focus:outline-none" />
+          <img src="../src/assets/magnifier.png" class="absolute inset-y-3 right-0 w-9 pr-3 my-auto" />
         </div>
       </div>
       <div class="mt-2">
-        <div class="flex gap-2">
+        <div class="flex gap-2 text-sm">
           <div>
-            <button @click="showSavedCities()" class="p-2 font-semibold rounded-xl bg-sky-100">Show saved</button>
+            <button @click="showSavedCities()" class="p-2 font-semibold text-slate-600 rounded-xl bg-teal-100">Show saved</button>
           </div>
           <div>
-            <button @click="showDetailsForCurrentLocation()" class="p-2 font-semibold rounded-xl bg-sky-100">Use my location</button>
+            <button @click="showDetailsForCurrentLocation()" class="p-2 font-semibold text-slate-600 rounded-xl bg-teal-100">Use my location</button>
           </div>
         </div>
       </div>
       <div>
         <ul class="pt-6">
-          <li v-for="(city, index) in searchResults" :key="index" class="bg-slate-200 rounded-xl w-full mb-2">
-            <div @click="showDetailsView(city.latitude, city.longitude, city.cityName)" class="py-4 cursor-default hover:bg-slate-200">
+          <li v-for="(city, index) in searchResults" :key="index" class="bg-slate-50 rounded-xl w-full mb-2">
+            <div @click="showDetailsView(city.latitude, city.longitude, city.cityName)" class="flex items-center justify-between py-4 cursor-default hover:bg-slate-100 hover:rounded-xl">
               <div>
                 <span class="font-semibold pl-2">{{ city.cityName }}</span>
+              </div>
+              <div>
+                <img src="../src/assets/chevron-right.png" class="w-6 pr-2" />
               </div>
             </div>
           </li>
@@ -333,9 +346,9 @@ onMounted( async () => {
       </div>
     </div>
     <div v-if="viewType === 'details'" class="flex flex-col gap-8">
-      <div class="flex justify-between">
+      <div class="flex justify-between text-xl">
         <div>
-          <button @click="returnToSearchView()">Return to search</button>
+          <button @click="returnToSearchView()" class="underline underline-offset-2 decoration-blue-500">Return to search</button>
         </div>
         <div>
           <button @click="addCity()">Save</button>
@@ -360,20 +373,20 @@ onMounted( async () => {
       </div>
       <div>
         <p class="text-sm font-medium text-gray-400 pb-2">HOURLY FORECAST</p>
-        <div class="overflow-x-auto flex gap-4">
-          <div v-for="(item, index) in combinedHourlyData" :key="index" class="flex-shrink-0 bg-slate-50 rounded-xl aspect-square w-28">
-            <div class="flex flex-col space-y-1">
-              <div class="flex justify-center">
-                {{ index == 0 ? "now" : item.time }}
+        <div class="overflow-x-auto flex gap-4 pb-8">
+          <div v-for="(item, index) in combinedHourlyData.slice(0, 24)" :key="index" class="flex-shrink-0 bg-slate-50 rounded-xl aspect-square w-28">
+            <div class="flex flex-col space-y-0">
+              <div class="flex justify-center pt-1">
+                <span class="medium text-slate-400">{{ index == 0 ? "now" : item.time }}</span>
               </div>
               <div class="flex justify-center">
                 <img
                   :src="getWeatherDetails(String(item.weather_code), true).image"
                   :alt="getWeatherDetails(String(item.weather_code), true).description"
-                  class="w-20 contrast-50"
+                  class="w-16 contrast-50"
                 />
               </div>
-              <div class="flex justify-center">
+              <div class="flex justify-center pb-1">
                 <span class="font-medium">{{ item.temperature_2m }}&deg;</span>
               </div>
             </div>
@@ -395,11 +408,8 @@ onMounted( async () => {
                   class="w-16"
                 />
               </div>
-              <div class="basis-1/4 tracking-wide">
-                <span><strong>min.</strong> {{ day.temperature_2m_min }}°C</span>
-              </div>
-              <div class="basis-1/4 tracking-wide">
-                <span><strong>max.</strong> {{ day.temperature_2m_max }}°C</span>
+              <div class="basis-1/2 tracking-wide">
+                <span class="pl-8">{{ day.temperature_2m_min + "°C &nbsp; - &nbsp; " + day.temperature_2m_max }}°C</span>
               </div>
             </div>
           </li>
