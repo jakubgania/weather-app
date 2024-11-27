@@ -1,66 +1,33 @@
 <script setup lang="ts">
 import iconsData from '../descriptions.json'
 import { onMounted, ref, computed, watch } from 'vue'
+import { useWeatherAPI } from './useWeatherAPI';
+import { useGeoLocation } from './useGeoLocation';
+import { useSearchLocation } from './useSearchLocation';
 
-interface WeatherApiResponse {
-  latitude: number;
-  longitude: number;
-  generationtime_ms: number;
-  utc_offset_seconds: number;
-  timezone: string;
-  timezone_abbreviation: string;
-  elevation: number;
-  current_units: {
-    time: string;
-    interval: string;
-    temperature_2m: string;
-    relative_humidity_2m: string;
-    is_day: string;
-    weather_code: string;
-    wind_speed_10m: string;
-  };
-  current: {
-    time: string;
-    interval: number;
-    temperature_2m: number;
-    relative_humidity_2m: number;
-    is_day: number;
-    weather_code: number;
-    wind_speed_10m: number;
-  };
-  hourly_units: {
-    time: string;
-    temperature_2m: string;
-    weather_code: string;
-  };
-  hourly: {
-    time: string[];
-    temperature_2m: number[];
-    weather_code: number[];
-  };
-  daily_units: {
-    time: string;
-    weather_code: string;
-    temperature_2m_max: string;
-    temperature_2m_min: string;
-    sunrise: string;
-    sunset: string;
-  };
-  daily: {
-    time: string[];
-    weather_code: number[];
-    temperature_2m_max: number[];
-    temperature_2m_min: number[];   
-    sunrise: string[];
-    sunset: string[];
-  };
-}
+const { weatherAPIData, fetchAPI } = useWeatherAPI();
+const { getBrowserCoordinates } = useGeoLocation();
+const { getCoordinates } = useSearchLocation()
 
 interface City {
   latitude: number;
   longitude: number;
   cityName: string;
+  country: string;
+  countryCode: string,
+  admin1: string;
 }
+
+type WeatherIconData = {
+  day: {
+    description: string;
+    image: string
+  };
+  night: {
+    description: string;
+    image: string
+  };
+};
 
 const viewType = ref<string>('details')
 const searchResults  =ref<City[]>([]);
@@ -70,12 +37,17 @@ const likedCities = ref<City[]>([]);
 const cityName = ref<string>('')
 const latitude = ref<number>(0)
 const longitude = ref<number>(0)
-const weatherAPIData = ref<WeatherApiResponse | null>(null);
+const country = ref<string>('')
+const countryCode = ref<string>('')
+const admin1 = ref<string>('')
 
 const DEFAULT_COORDINATES = {
   initLatitude: 51.5142,
   initLongitude: 7.4684,
-  initCityName: 'Dortmund'
+  initCityName: 'Dortmund',
+  initCountry: 'Germany',
+  initCountryCode: 'DE',
+  initAdmin1: 'North Rhine-Westphalia'
 };
 
 const addCity = () => {
@@ -84,6 +56,9 @@ const addCity = () => {
       latitude: latitude.value,
       longitude: longitude.value,
       cityName: cityName.value,
+      country: "",
+      countryCode: "",
+      admin1: ""
     });
 
     alert(`You have added ${cityName.value} to your watch list ✅`)
@@ -129,11 +104,9 @@ const combinedDailyData = computed(() => {
 const combinedHourlyData = computed(() => {
   if (weatherAPIData.value && weatherAPIData.value.daily) {
     const { time, weather_code, temperature_2m } = weatherAPIData.value.hourly;
-
     const currentHour = new Date().getHours();
-    let counter = 0
-    
     const formatHour = (hour: number) => (hour < 10 ? `0${hour}` : `${hour}`);
+    let counter = 0
 
     return time.map((t, index) => {
       const hour = new Date(t).getHours();
@@ -149,6 +122,7 @@ const combinedHourlyData = computed(() => {
         if (parseInt(item.time) == 23) {
           counter = 1
         }
+
         return parseInt(item.time) >= currentHour
       }
 
@@ -157,6 +131,7 @@ const combinedHourlyData = computed(() => {
       }
     });
   }
+
   return [];
 });
 
@@ -167,72 +142,6 @@ const getDayName = (isoDate: string): string => {
   return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date);
 }
 
-// function showPosition() {
-
-// }
-
-const getBrowserCoordinates = async (): Promise<{ latitude: number; longitude: number } | null> => {
-  if (!navigator.geolocation) {
-    alert('Geolocation is not supported by your browser.');
-    return null;
-  }
-
-  // console.log(navigator.geolocation.getCurrentPosition(showPosition))
-
-  return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        resolve({ latitude, longitude });
-      },
-      (error) => {
-        console.error('Error getting location:', error);
-        alert('Unable to retrieve your location.');
-        reject(null);
-      }
-    )
-  })
-}
-
-const getCoordinates =  async (locationName: string): Promise<City[] | null> => {
-  if (!locationName) {
-    alert('Search bar is empty!');
-    return null
-  }
-
-  const numberOfItems = 8
-
-  try {
-    const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${locationName}&count=${numberOfItems}&language=en&format=json`)
-    const data = await response.json()
-
-    if (data.results && data.results.length > 0) {
-      const results = data.results.map((result: any) => ({
-        latitude: result.latitude,
-        longitude: result.longitude,
-        cityName: result.name,
-      }))
-
-      return results;
-    } else {
-      alert('Location not found!');
-      return null
-    } 
-  } catch(error) {
-    console.error('Error fetching coordinates:', error);
-    return null;
-  }
-}
-
-const fetchAPI = async (latitude: number, longitude: number): Promise<void> => {
-  await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,is_day,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&forecast_days=5&timezone=Europe%2FBerlin`)
-  .then(async(response) => {
-    const data: WeatherApiResponse = await response.json()
-    console.log(data)
-    weatherAPIData.value = data
-  })
-}
-
 const searchLocation = async (): Promise<void> => {
   const locationName = searchBarValue.value;
   const coordinates = await getCoordinates(locationName);
@@ -241,9 +150,6 @@ const searchLocation = async (): Promise<void> => {
     searchResults.value = coordinates
   }
 
-  // const { latitude, longitude, cityName: fetchedCityName } = coordinates ?? DEFAULT_COORDINATES;
-  // cityName.value = fetchedCityName
-  // await fetchAPI(latitude, longitude);
   return
 }
 
@@ -259,14 +165,19 @@ const formattedTime = (originalTime: string) => {
   return formattedTime;
 }
 
-const showDetailsView = async (latitudeVal: number, longitudeVal: number, city: string): Promise<void> => {
+// const showDetailsView = async (latitudeVal: number, longitudeVal: number, city: string, country: string, countryCode: string, admin1: string): Promise<void> => {
+const showDetailsView = async (city: City): Promise<void> => {
   viewType.value = "details"
-  cityName.value = city
-  latitude.value = latitudeVal
-  longitude.value = longitudeVal
+  cityName.value = city.cityName
+  latitude.value = city.latitude
+  longitude.value = city.longitude
+  country.value = city.country
+  countryCode.value = city.countryCode
+  admin1.value = city.admin1
+
   currentLocationFlag.value = false
 
-  await fetchAPI(latitudeVal, longitudeVal)
+  await fetchAPI(city.latitude, city.longitude)
 }
 
 const returnToSearchView = () => {
@@ -302,14 +213,7 @@ const showDetailsForCurrentLocation = async () => {
   }
 }
 
-type WeatherIconData = {
-  day: { description: string; image: string };
-  night: { description: string; image: string };
-};
-
 const getWeatherDetails = (weatherCode: string, checkDay: boolean) => {
-  // console.log(weatherAPIData.value?.current.is_day)
-  
   if (checkDay) {
     const isDay = weatherAPIData.value?.current.is_day;
     const key = isDay ? 'day' : 'night';
@@ -327,13 +231,27 @@ onMounted( async () => {
     cityName.value = "Your location"
     latitude.value = currentCoordinates.latitude
     longitude.value = currentCoordinates.longitude
+    country.value = ''
+    countryCode.value = ''
+    admin1.value = ''
 
     await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
   } else {
-    const { initLatitude, initLongitude, initCityName } = DEFAULT_COORDINATES;
+    const {
+      initLatitude,
+      initLongitude,
+      initCityName,
+      initCountry,
+      initCountryCode,
+      initAdmin1
+    } = DEFAULT_COORDINATES;
+    
     cityName.value = initCityName
     latitude.value = initLatitude
     longitude.value = initLongitude
+    country.value = initCountry
+    countryCode.value = initCountryCode
+    admin1.value = initAdmin1
 
     await fetchAPI(initLatitude, initLongitude)
   }
@@ -341,35 +259,39 @@ onMounted( async () => {
 </script>
 
 <template>
-  <div class="w-[640px] p-4 mt-20">
+  <div class="w-[640px] p-4 my-20">
     <div class="flex items-center gap-4">
-      <h1 class="font-bold pb-4">Weather App</h1>
+      <h1 class="font-bold pb-4 text-[3.2rem]">Weather App</h1>
       <img src="../src/assets/windsock.gif" class="w-12 -mt-2" />
     </div>
-    <Transition name="fade">
     <div v-if="viewType === 'search'">
       <div>
-        <div class="relative">
-          <input type="text" v-model="searchBarValue" placeholder="Type city" class="w-full p-3 pr-12 placeholder-slate-400 font-semibold rounded-xl bg-slate-50 focus:outline-none" />
-          <img src="../src/assets/magnifier.png" class="absolute inset-y-3 right-0 w-9 pr-3 my-auto" />
+        <div class="relative pt-8">
+          <input type="text" v-model="searchBarValue" placeholder="Type city" autocomplete="off" class="w-full p-3 pr-12 placeholder-slate-400 font-semibold rounded-xl border border-slate-100 focus:outline-none" />
+          <img src="../src/assets/magnifier.png" class="absolute inset-y-3 right-0 w-9 pt-8 pr-3 my-auto" />
         </div>
       </div>
-      <div class="mt-2">
+      <div class="mt-3">
         <div class="flex gap-2 text-sm">
           <div>
-            <button @click="showSavedCities()" class="p-2 font-bold rounded-xl bg-sky-50">Show saved</button>
+            <button @click="showSavedCities()" class="p-2 font-bold rounded-xl bg-slate-50">Show saved</button>
           </div>
           <div>
-            <button @click="showDetailsForCurrentLocation()" class="p-2 font-bold rounded-xl bg-sky-50">Use my location</button>
+            <button @click="showDetailsForCurrentLocation()" class="p-2 font-bold rounded-xl bg-slate-50">Use my location</button>
           </div>
         </div>
       </div>
       <div>
         <ul class="pt-6">
           <li v-for="(city, index) in searchResults" :key="index" class="bg-slate-50 rounded-xl w-full mb-2">
-            <div @click="showDetailsView(city.latitude, city.longitude, city.cityName)" class="flex items-center justify-between py-4 cursor-default hover:bg-slate-100 hover:rounded-xl">
-              <div>
-                <span class="font-semibold pl-2">{{ city.cityName }}</span>
+            <div @click="showDetailsView(city)" class="flex items-center justify-between py-3 cursor-default hover:bg-slate-100 hover:rounded-xl">
+              <div class="pl-2">
+                <div>
+                  <span class="font-semibold">{{ city.cityName }}</span>
+                </div>
+                <div>
+                  <span class="text-sm font-medium">{{ `${city.country} - ${city.admin1} | ${city.countryCode}` }}</span>
+                </div>
               </div>
               <div>
                 <img src="../src/assets/chevron-right.png" class="w-6 pr-2" />
@@ -379,8 +301,6 @@ onMounted( async () => {
         </ul>
       </div>
     </div>
-    </Transition>
-    <Transition name="fade">
     <div v-if="viewType === 'details'" class="flex flex-col gap-8">
       <div class="flex justify-between text-xl pt-8">
         <div class="flex items-center gap-2">
@@ -414,6 +334,7 @@ onMounted( async () => {
           </div>
         </div>
         <p v-if="currentLocationFlag" class="text-sm text-gray-400">Data for your current location</p>
+        <p v-else class="text-sm text-gray-400">{{ `${country} - ${admin1} | ${countryCode}` }}</p>
       </div>
       <div>
         <div class="grid grid-cols-2 gap-2">
@@ -500,18 +421,9 @@ onMounted( async () => {
         </ul>
       </div>
     </div>
-    </Transition>
   </div>
   <!-- <HelloWorld msg="Vite + Vue" /> -->
 </template>
 
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.1s ease-in-out;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>
+<!-- <style scoped>
+</style> -->

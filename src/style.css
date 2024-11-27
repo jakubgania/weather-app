@@ -35,10 +35,10 @@ body {
   place-items: center;
 }
 
-h1 {
+/* h1 {
   font-size: 3em;
   line-height: 1.1;
-}
+} */
 
 .card {
   padding: 2em;
