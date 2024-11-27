@@ -11,18 +11,22 @@ interface WeatherApiResponse {
   timezone_abbreviation: string;
   elevation: number;
   current_units: {
-    time: string,
-    interval: string,
-    temperature_2m: string,
-    is_day: string,
-    weather_code: string
+    time: string;
+    interval: string;
+    temperature_2m: string;
+    relative_humidity_2m: string;
+    is_day: string;
+    weather_code: string;
+    wind_speed_10m: string;
   };
   current: {
     time: string;
     interval: number;
     temperature_2m: number;
+    relative_humidity_2m: number;
     is_day: number;
     weather_code: number;
+    wind_speed_10m: number;
   };
   hourly_units: {
     time: string;
@@ -39,20 +43,23 @@ interface WeatherApiResponse {
     weather_code: string;
     temperature_2m_max: string;
     temperature_2m_min: string;
+    sunrise: string;
+    sunset: string;
   };
   daily: {
     time: string[];
     weather_code: number[];
     temperature_2m_max: number[];
     temperature_2m_min: number[];   
-
+    sunrise: string[];
+    sunset: string[];
   };
 }
 
 interface City {
   latitude: number;
   longitude: number;
-  cityName: string
+  cityName: string;
 }
 
 const viewType = ref<string>('details')
@@ -72,7 +79,7 @@ const DEFAULT_COORDINATES = {
 };
 
 const addCity = () => {
-  if (!likedCities.value.some((entry) => entry.cityName === cityName.value)) {
+  if (!likedCities.value.some((item) => item.cityName === cityName.value)) {
     likedCities.value.push({
       latitude: latitude.value,
       longitude: longitude.value,
@@ -83,6 +90,18 @@ const addCity = () => {
   } else {
     alert('This city is already added ⚠️')
   }
+}
+
+const removeCity = () => {
+  likedCities.value = likedCities.value.filter((item) => item.cityName !== cityName.value);
+}
+
+const checkIfCityIsAdded = (city: string): boolean => {
+  if (likedCities.value.some((item) => item.cityName === city)) {
+    return true
+  }
+
+  return false
 }
 
 // rounding the temperature to one digit
@@ -140,6 +159,7 @@ const combinedHourlyData = computed(() => {
   }
   return [];
 });
+
 
 const getDayName = (isoDate: string): string => {
   const date = new Date(isoDate);
@@ -205,7 +225,7 @@ const getCoordinates =  async (locationName: string): Promise<City[] | null> => 
 }
 
 const fetchAPI = async (latitude: number, longitude: number): Promise<void> => {
-  await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,is_day,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=5`)
+  await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,is_day,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&forecast_days=5&timezone=Europe%2FBerlin`)
   .then(async(response) => {
     const data: WeatherApiResponse = await response.json()
     console.log(data)
@@ -225,6 +245,18 @@ const searchLocation = async (): Promise<void> => {
   // cityName.value = fetchedCityName
   // await fetchAPI(latitude, longitude);
   return
+}
+
+const formattedTime = (originalTime: string) => {
+  const dateObj = new Date(originalTime);
+
+  const formattedTime = dateObj.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+
+  return formattedTime;
 }
 
 const showDetailsView = async (latitudeVal: number, longitudeVal: number, city: string): Promise<void> => {
@@ -305,28 +337,30 @@ onMounted( async () => {
 
     await fetchAPI(initLatitude, initLongitude)
   }
-  
-  // fetchWeatcherData()
 })
 </script>
 
 <template>
-  <div class="w-[640px] p-4 mt-24">
-    <h1 class="font-bold pb-4">Weather App</h1>
+  <div class="w-[640px] p-4 mt-20">
+    <div class="flex items-center gap-4">
+      <h1 class="font-bold pb-4">Weather App</h1>
+      <img src="../src/assets/windsock.gif" class="w-12 -mt-2" />
+    </div>
+    <Transition name="fade">
     <div v-if="viewType === 'search'">
       <div>
         <div class="relative">
-          <input type="text" v-model="searchBarValue" placeholder="Type city" class="w-full p-3 pr-12 placeholder-black font-bold rounded-xl bg-slate-50 focus:outline-none" />
+          <input type="text" v-model="searchBarValue" placeholder="Type city" class="w-full p-3 pr-12 placeholder-slate-400 font-semibold rounded-xl bg-slate-50 focus:outline-none" />
           <img src="../src/assets/magnifier.png" class="absolute inset-y-3 right-0 w-9 pr-3 my-auto" />
         </div>
       </div>
       <div class="mt-2">
         <div class="flex gap-2 text-sm">
           <div>
-            <button @click="showSavedCities()" class="p-2 font-semibold text-slate-600 rounded-xl bg-teal-100">Show saved</button>
+            <button @click="showSavedCities()" class="p-2 font-bold rounded-xl bg-sky-50">Show saved</button>
           </div>
           <div>
-            <button @click="showDetailsForCurrentLocation()" class="p-2 font-semibold text-slate-600 rounded-xl bg-teal-100">Use my location</button>
+            <button @click="showDetailsForCurrentLocation()" class="p-2 font-bold rounded-xl bg-sky-50">Use my location</button>
           </div>
         </div>
       </div>
@@ -345,30 +379,80 @@ onMounted( async () => {
         </ul>
       </div>
     </div>
+    </Transition>
+    <Transition name="fade">
     <div v-if="viewType === 'details'" class="flex flex-col gap-8">
-      <div class="flex justify-between text-xl">
-        <div>
-          <button @click="returnToSearchView()" class="underline underline-offset-2 decoration-blue-500">Return to search</button>
+      <div class="flex justify-between text-xl pt-8">
+        <div class="flex items-center gap-2">
+          <img src="../src/assets/chevron-right.png" class="w-5 rotate-180" />
+          <button @click="returnToSearchView()" class="text-blue-500">Return to search</button>
         </div>
-        <div>
-          <button @click="addCity()">Save</button>
+        <div class="flex items-center gap-2">
+          <template v-if="!checkIfCityIsAdded(cityName)">
+            <button @click="addCity()">Save</button>
+            <img src="../src/assets/add.png" class="w-5" />
+          </template>
+          <template v-if="checkIfCityIsAdded(cityName)">
+            <button @click="removeCity()">Remove</button>
+            <img src="../src/assets/minus.png" class="w-5" />
+          </template>
         </div>
       </div>
       <div>
-        <div class="flex items-center">
-          <div>
+        <div>
+          <div class="flex items-center">
             <span class="text-4xl font-semibold">
               {{ cityName }}:
               {{ weatherAPIData ? transformNumber(weatherAPIData?.current.temperature_2m) : "n/a" }}&deg;
             </span>
-          <p v-if="currentLocationFlag" class="text-sm text-gray-400">Data for your current location</p>
+            <img
+              v-if="weatherAPIData?.current.weather_code"
+              :src="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).image"
+              :alt="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).description"
+              class="w-16"
+            />
           </div>
-          <img
-            v-if="weatherAPIData?.current.weather_code"
-            :src="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).image"
-            :alt="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).description"
-            class="w-16"
-          />
+        </div>
+        <p v-if="currentLocationFlag" class="text-sm text-gray-400">Data for your current location</p>
+      </div>
+      <div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="rounded-lg p-4 bg-slate-50">
+            <div class="pb-2">
+              <h3 class="tracking-wide text-xl text-slate-400">Sunrise</h3>
+            </div>
+            <div class="flex items-center gap-4">
+              <img src="../src/assets/sunrise.png" class="w-8" />
+              <span class="text-4xl">{{ formattedTime(weatherAPIData ? weatherAPIData?.daily.sunrise[0] : "n/a") }}</span>
+            </div>
+          </div>
+          <div class="rounded-lg p-4 bg-slate-50">
+            <div class="pb-2">
+              <h3 class="tracking-wide text-xl text-slate-400">Sunset</h3>
+            </div>
+            <div class="flex items-center gap-4">
+              <img src="../src/assets/sunset.png" class="w-8" />
+              <span class="text-4xl">{{ formattedTime(weatherAPIData ? weatherAPIData?.daily.sunset[0] : "n/a") }}</span>
+            </div>
+          </div>
+          <div class="rounded-lg p-4 bg-slate-50">
+            <div class="pb-2">
+              <h3 class="tracking-wide text-xl text-slate-400">Wind speed</h3>
+            </div>
+            <div class="flex items-center gap-4">
+              <img src="../src/assets/wind.png" class="w-8" />
+              <span class="text-4xl">{{ weatherAPIData ? weatherAPIData?.current.wind_speed_10m + " km/h" : "n/a" }}</span>
+            </div>
+          </div>
+          <div class="rounded-lg p-4 bg-slate-50">
+            <div class="pb-2">
+              <h3 class="tracking-wide text-xl text-slate-400">Humidity</h3>
+            </div>
+            <div class="flex items-center gap-4">
+              <img src="../src/assets/humidity.png" class="w-8" />
+              <span class="text-4xl">{{ weatherAPIData ? weatherAPIData?.current.relative_humidity_2m + " %" : "n/a" }}</span>
+            </div>
+          </div>
         </div>
       </div>
       <div>
@@ -397,7 +481,7 @@ onMounted( async () => {
         <p class="text-sm font-medium text-gray-400 pb-2">DAILY FORECAST</p>
         <ul>
           <li v-for="(day, index) in combinedDailyData" :key="index" class="border-b border-gray-100 last:border-b-0">
-            <div class="flex items-center py-4 text-2xl">
+            <div class="flex items-center py-3 text-2xl">
               <div class="basis-1/4">
                 <span class="font-medium">{{ getDayName(day.time) }}</span> 
               </div>
@@ -416,9 +500,18 @@ onMounted( async () => {
         </ul>
       </div>
     </div>
+    </Transition>
   </div>
   <!-- <HelloWorld msg="Vite + Vue" /> -->
 </template>
 
-<!-- <style scoped>
-</style> -->
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.1s ease-in-out;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>
