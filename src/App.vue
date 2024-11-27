@@ -1,7 +1,5 @@
 <script setup lang="ts">
-// import HelloWorld from './components/HelloWorld.vue'
-// import VueHorizontal from "vue-horizontal" uninstall
-// import { fetchWeatcherData } from './weatherApi';
+import iconsData from '../descriptions.json'
 import { onMounted, ref, computed, watch } from 'vue'
 
 interface WeatherApiResponse {
@@ -65,7 +63,7 @@ const likedCities = ref<City[]>([]);
 const cityName = ref<string>('')
 const latitude = ref<number>(0)
 const longitude = ref<number>(0)
-const weatcherAPIData = ref<WeatherApiResponse | null>(null);
+const weatherAPIData = ref<WeatherApiResponse | null>(null);
 
 const DEFAULT_COORDINATES = {
   initLatitude: 51.5142,
@@ -73,9 +71,13 @@ const DEFAULT_COORDINATES = {
   initCityName: 'Dortmund'
 };
 
-const addCity = (city: City) => {
-  if (!likedCities.value.some((entry) => entry.cityName === city.cityName)) {
-    likedCities.value.push(city);
+const addCity = () => {
+  if (!likedCities.value.some((entry) => entry.cityName === cityName.value)) {
+    likedCities.value.push({
+      latitude: latitude.value,
+      longitude: longitude.value,
+      cityName:cityName.value,
+    });
   }
 }
 
@@ -86,8 +88,8 @@ const transformNumber = (temperature: number) => {
 
 // combine the daily data arrays into one
 const combinedDailyData = computed(() => {
-  if (weatcherAPIData.value && weatcherAPIData.value.daily) {
-    const { time, weather_code, temperature_2m_max, temperature_2m_min } = weatcherAPIData.value.daily;
+  if (weatherAPIData.value && weatherAPIData.value.daily) {
+    const { time, weather_code, temperature_2m_max, temperature_2m_min } = weatherAPIData.value.daily;
     
     return time.map((t, index) => ({
       time: t,
@@ -102,8 +104,8 @@ const combinedDailyData = computed(() => {
 
 // combine the daily data arrays into one
 const combinedHourlyData = computed(() => {
-  if (weatcherAPIData.value && weatcherAPIData.value.daily) {
-    const { time, weather_code, temperature_2m } = weatcherAPIData.value.hourly;
+  if (weatherAPIData.value && weatherAPIData.value.daily) {
+    const { time, weather_code, temperature_2m } = weatherAPIData.value.hourly;
 
     const currentHour = new Date().getHours();
     let counter = 0
@@ -140,6 +142,10 @@ const getDayName = (isoDate: string): string => {
 
   return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date);
 }
+
+// function showPosition() {
+
+// }
 
 const getBrowserCoordinates = async (): Promise<{ latitude: number; longitude: number } | null> => {
   if (!navigator.geolocation) {
@@ -198,7 +204,8 @@ const fetchAPI = async (latitude: number, longitude: number): Promise<void> => {
   await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,is_day,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=5`)
   .then(async(response) => {
     const data: WeatherApiResponse = await response.json()
-    weatcherAPIData.value = data
+    console.log(data)
+    weatherAPIData.value = data
   })
 }
 
@@ -216,12 +223,14 @@ const searchLocation = async (): Promise<void> => {
   return
 }
 
-const showDetailsView = async (latitude: number, longitude: number, city: string): Promise<void> => {
+const showDetailsView = async (latitudeVal: number, longitudeVal: number, city: string): Promise<void> => {
   viewType.value = "details"
   cityName.value = city
+  latitude.value = latitudeVal
+  longitude.value = longitudeVal
   currentLocationFlag.value = false
 
-  await fetchAPI(latitude, longitude)
+  await fetchAPI(latitudeVal, longitudeVal)
 }
 
 const returnToSearchView = () => {
@@ -251,6 +260,24 @@ const showDetailsForCurrentLocation = async () => {
   }
 }
 
+type WeatherIconData = {
+  day: { description: string; image: string };
+  night: { description: string; image: string };
+};
+
+const getWeatherDetails = (weatherCode: string, checkDay: boolean) => {
+  // console.log(weatherAPIData.value?.current.is_day)
+  
+  if (checkDay) {
+    const isDay = weatherAPIData.value?.current.is_day;
+    const key = isDay ? 'day' : 'night';
+
+    return (iconsData as Record<string, WeatherIconData>)[weatherCode]?.[key] || null;
+  } else {
+    return (iconsData as Record<string, WeatherIconData>)[weatherCode]?.day || null;
+  }
+}
+
 onMounted( async () => {
   const currentCoordinates = await getBrowserCoordinates();
 
@@ -274,7 +301,7 @@ onMounted( async () => {
 </script>
 
 <template>
-  <div class="w-[640px] bg-slate-100 p-4">
+  <div class="w-[640px] p-4 mt-24">
     <h1 class="font-bold pb-4">Weather App</h1>
     <div v-if="viewType === 'search'">
       <div>
@@ -311,28 +338,40 @@ onMounted( async () => {
           <button @click="returnToSearchView()">Return to search</button>
         </div>
         <div>
-          <button @click="addCity({latitude, longitude, cityName})">Save</button>
+          <button @click="addCity()">Save</button>
         </div>
       </div>
       <div>
-        <div>
-          <span class="text-4xl font-semibold">
-            {{ cityName }}:
-            {{ weatcherAPIData ? transformNumber(weatcherAPIData?.current.temperature_2m) : "n/a" }}&deg;
-          </span>
+        <div class="flex items-center">
+          <div>
+            <span class="text-4xl font-semibold">
+              {{ cityName }}:
+              {{ weatherAPIData ? transformNumber(weatherAPIData?.current.temperature_2m) : "n/a" }}&deg;
+            </span>
           <p v-if="currentLocationFlag" class="text-sm text-gray-400">Data for your current location</p>
+          </div>
+          <img
+            v-if="weatherAPIData?.current.weather_code"
+            :src="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).image"
+            :alt="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).description"
+            class="w-16"
+          />
         </div>
       </div>
       <div>
         <p class="text-sm font-medium text-gray-400 pb-2">HOURLY FORECAST</p>
         <div class="overflow-x-auto flex gap-4">
-          <div v-for="(item, index) in combinedHourlyData" :key="index" class="flex-shrink-0 bg-sky-300 aspect-square w-28">
-            <div class="flex flex-col space-y-4">
+          <div v-for="(item, index) in combinedHourlyData" :key="index" class="flex-shrink-0 bg-slate-50 rounded-xl aspect-square w-28">
+            <div class="flex flex-col space-y-1">
               <div class="flex justify-center">
                 {{ index == 0 ? "now" : item.time }}
               </div>
               <div class="flex justify-center">
-                {{ item.weather_code }}
+                <img
+                  :src="getWeatherDetails(String(item.weather_code), true).image"
+                  :alt="getWeatherDetails(String(item.weather_code), true).description"
+                  class="w-20 contrast-50"
+                />
               </div>
               <div class="flex justify-center">
                 <span class="font-medium">{{ item.temperature_2m }}&deg;</span>
@@ -344,15 +383,22 @@ onMounted( async () => {
       <div>
         <p class="text-sm font-medium text-gray-400 pb-2">DAILY FORECAST</p>
         <ul>
-          <li v-for="(day, index) in combinedDailyData" :key="index" class="bg-slate-200 border-b border-gray-300 last:border-b-0">
-            <div class="flex py-4 text-xl">
-              <div class="basis-1/3">
+          <li v-for="(day, index) in combinedDailyData" :key="index" class="border-b border-gray-100 last:border-b-0">
+            <div class="flex items-center py-4 text-2xl">
+              <div class="basis-1/4">
                 <span class="font-medium">{{ getDayName(day.time) }}</span> 
               </div>
-              <div class="basis-1/3 tracking-wide">
+              <div class="basis-1/4">
+                <img
+                  :src="getWeatherDetails(String(day.weather_code), false).image"
+                  :alt="getWeatherDetails(String(day.weather_code), false).description"
+                  class="w-16"
+                />
+              </div>
+              <div class="basis-1/4 tracking-wide">
                 <span><strong>min.</strong> {{ day.temperature_2m_min }}°C</span>
               </div>
-              <div class="basis-1/3 tracking-wide">
+              <div class="basis-1/4 tracking-wide">
                 <span><strong>max.</strong> {{ day.temperature_2m_max }}°C</span>
               </div>
             </div>
