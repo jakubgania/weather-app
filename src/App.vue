@@ -186,8 +186,9 @@ watch(searchBarValue, async () => {
   }
 })
 
-const showDetailsForCurrentLocation = async () => {
+const showDetailsForCurrentLocation = async (): Promise<void> => {
   const currentCoordinates = await getBrowserCoordinates();
+
   if (currentCoordinates) {
     currentLocationFlag.value = true
     viewType.value = "details"
@@ -196,34 +197,14 @@ const showDetailsForCurrentLocation = async () => {
     cityName.value = "Your location"
 
     await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
+  } else {
+    viewType.value = "details"
+    await loadInitData()
   }
 }
 
-const getWeatherDetails = (weatherCode: string, checkDay: boolean) => {
-  if (checkDay) {
-    const isDay = weatherAPIData.value?.current.is_day;
-    const key = isDay ? 'day' : 'night';
-
-    return (iconsData as Record<string, WeatherIconData>)[weatherCode]?.[key] || null;
-  } else {
-    return (iconsData as Record<string, WeatherIconData>)[weatherCode]?.day || null;
-  }
-}
-
-onMounted( async () => {
-  const currentCoordinates = await getBrowserCoordinates();
-
-  if (currentCoordinates) {
-    cityName.value = "Your location"
-    latitude.value = currentCoordinates.latitude
-    longitude.value = currentCoordinates.longitude
-    country.value = ''
-    countryCode.value = ''
-    admin1.value = ''
-
-    await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
-  } else {
-    const {
+const loadInitData = async (): Promise<void> => {
+  const {
       initLatitude,
       initLongitude,
       initCityName,
@@ -239,16 +220,46 @@ onMounted( async () => {
     countryCode.value = initCountryCode
     admin1.value = initAdmin1
 
+    currentLocationFlag.value = false
+
     await fetchAPI(initLatitude, initLongitude)
+}
+
+const getWeatherDetails = (weatherCode: string, checkDay: boolean) => {
+  if (checkDay) {
+    const isDay = weatherAPIData.value?.current.is_day;
+    const key = isDay ? 'day' : 'night';
+
+    return (iconsData as Record<string, WeatherIconData>)[weatherCode]?.[key] || null;
+  } else {
+    return (iconsData as Record<string, WeatherIconData>)[weatherCode]?.day || null;
+  }
+}
+
+onMounted( async () => {
+  const currentCoordinates = await getBrowserCoordinates();
+  console.log(currentCoordinates)
+
+  if (currentCoordinates) {
+    cityName.value = "Your location"
+    latitude.value = currentCoordinates.latitude
+    longitude.value = currentCoordinates.longitude
+    country.value = ''
+    countryCode.value = ''
+    admin1.value = ''
+
+    await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
+  } else {
+    await loadInitData()
   }
 })
 </script>
 
 <template>
-  <div class="w-[640px] p-4 my-20">
+  <div class="w-full max-w-[640px] p-4 my-10 md:my-14 lg:my-20 ml-auto mr-auto">
     <div class="flex items-center gap-4">
-      <h1 class="font-bold pb-4 text-[3.2rem]">Weather App</h1>
-      <img src="../src/assets/windsock.gif" class="w-12 -mt-2" />
+      <h1 class="font-bold pb-4 text-4xl md:text-5xl lg:text-[3.2rem]">Weather App</h1>
+      <img src="../src/assets/windsock.gif" class="w-8 md:w-10 lg:w-12 -mt-2" />
     </div>
     <template v-if="viewType === 'search'">
       <div>
@@ -256,8 +267,8 @@ onMounted( async () => {
           <div class="relative pt-8">
             <input
               type="search"
-              v-model="searchBarValue"p
-              laceholder="Type city"
+              v-model="searchBarValue"
+              placeholder="Type city"
               autocomplete="off"
               :class="[
                 'w-full',
@@ -267,6 +278,7 @@ onMounted( async () => {
                 'font-semibold',
                 'rounded-xl',
                 'border',
+                'bg-transparent',
                 'border-slate-100',
                 'focus:outline-none',
               ]"
@@ -321,9 +333,9 @@ onMounted( async () => {
     </template>
     <template v-if="viewType === 'details'">
       <div class="flex flex-col gap-8">
-        <div class="flex justify-between text-xl pt-8">
+        <div class="flex justify-between text-lg md:text-xl pt-8">
           <div class="flex items-center gap-2">
-            <img src="../src/assets/chevron-right.png" class="w-5 rotate-180" />
+            <img src="../src/assets/chevron-right.png" class="w-5 rotate-180 -ml-1" />
             <button @click="returnToSearchView()" class="text-blue-500">Return to search</button>
           </div>
           <div class="flex items-center gap-2">
@@ -340,7 +352,7 @@ onMounted( async () => {
         <div>
           <div>
             <div class="flex items-center">
-              <span class="text-4xl font-semibold">
+              <span class="text-3xl md:text-4xl font-semibold">
                 {{ cityName }}:
                 {{ weatherAPIData ? transformNumber(weatherAPIData?.current.temperature_2m) : "n/a" }}&deg;
               </span>
@@ -375,7 +387,6 @@ onMounted( async () => {
       </div>
     </template>
   </div>
-  <!-- <HelloWorld msg="Vite + Vue" /> -->
 </template>
 
 <!-- <style scoped>

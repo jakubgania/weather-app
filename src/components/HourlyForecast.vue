@@ -10,8 +10,10 @@ defineProps<{
 
 <template>
   <div>
-    <p class="text-sm font-medium text-gray-400 pb-2">HOURLY FORECAST</p>
-    <div class="overflow-x-auto flex gap-4 pb-8">
+    <p class="text-sm font-medium text-gray-400 pb-2">
+      HOURLY FORECAST
+    </p>
+    <div class="overflow-x-auto flex gap-2 md:gap-4 pb-8">
       <div
         v-for="(item, index) in hourlyData.slice(0, 24)"
         :key="index"
@@ -25,7 +27,7 @@ defineProps<{
             <img
               :src="getWeatherDetails(String(item.weather_code), true)?.image"
               :alt="getWeatherDetails(String(item.weather_code), true)?.description"
-              class="w-16 contrast-50"
+              class="w-14 md:w-16 contrast-50"
             />
           </div>
           <div class="flex justify-center pb-1">

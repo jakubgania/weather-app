@@ -1,6 +1,3 @@
-// function showPosition() {
-
-// }
 
 export function useGeoLocation() {
   const getBrowserCoordinates = async (): Promise<{ latitude: number; longitude: number } | null> => {
@@ -9,7 +6,7 @@ export function useGeoLocation() {
       return null;
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise<{ latitude: number; longitude: number } | null>((resolve) => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
@@ -18,10 +15,10 @@ export function useGeoLocation() {
         (error) => {
           console.error('Error getting location:', error);
           alert('Unable to retrieve your location.');
-          reject(null);
+          resolve(null);
         }
       );
-    });
+    }).catch(() => null);
   };
 
   return {

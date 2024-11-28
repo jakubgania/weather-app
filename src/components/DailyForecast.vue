@@ -11,26 +11,28 @@ defineProps<{
 
 <template>
   <div>
-    <p class="text-sm font-medium text-gray-400 pb-2">DAILY FORECAST</p>
+    <p class="text-sm font-medium text-gray-400 pb-2">
+      DAILY FORECAST
+    </p>
     <ul>
       <li 
         v-for="(day, index) in dailyData"
         :key="index"
         class="border-b border-gray-100 last:border-b-0"
       >
-        <div class="flex items-center py-3 text-2xl">
-          <div class="basis-1/4">
+        <div class="flex items-center py-3 text-xl md:text-2xl">
+          <div class="basis-2/6 md:basis-1/4">
             <span class="font-medium">{{ getDayName(day.time) }}</span> 
           </div>
-          <div class="basis-1/4">
+          <div class="basis-1/6 md:basis-1/4">
             <img
               :src="getWeatherDetails(String(day.weather_code), false)?.image"
               :alt="getWeatherDetails(String(day.weather_code), false)?.description"
-              class="w-16"
+              class="w-14 md:w-16"
             />
           </div>
-          <div class="basis-1/2 tracking-wide">
-            <span class="pl-8">{{ day.temperature_2m_min + "°C &nbsp; - &nbsp; " + day.temperature_2m_max }}°C</span>
+          <div class="basis-3/6 md:basis-2/4">
+            <span class="pl-8 font-medium tracking-wide">{{ day.temperature_2m_min + "°C &nbsp; - &nbsp; " + day.temperature_2m_max }}°C</span>
           </div>
         </div>
       </li>
