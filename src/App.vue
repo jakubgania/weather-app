@@ -149,6 +149,7 @@ const returnToSearchView = (): void => {
 
 const showSavedCities = (): void => {
   if (likedCities.value.length == 0) {
+    searchResults.value = []
     alert("You haven't added any city yet")
   } else {
     // searchResults.value = likedCities.value.reverse()
@@ -175,6 +176,9 @@ const showDetailsForCurrentLocation = async (): Promise<void> => {
 
     // thanks to this its possible add your current location to your favorites with the name 'your location'
     currentCity.cityName = "Your location"
+    currentCity.country = `Data for your location`
+    currentCity.countryCode = ''
+    currentCity.admin1 = ''
 
     await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
   } else {
@@ -223,7 +227,7 @@ onMounted( async () => {
     currentCity.cityName = "Your location";
     currentCity.latitude = currentCoordinates.latitude;
     currentCity.longitude = currentCoordinates.longitude;
-    currentCity.country = '';
+    currentCity.country = `Data for your location: lat. ${String(currentCoordinates.latitude.toFixed(2))} - lng. ${String(currentCoordinates.longitude.toFixed(2))}`;
     currentCity.countryCode = '';
     currentCity.admin1 = '';
 

@@ -1,3 +1,5 @@
+import { City } from "./types";
+
 // rounds the temperature to one digit
 export const transformNumber = (temperature: number): number => {
   return Math.round(Number(temperature));
@@ -19,4 +21,13 @@ export const formattedTime = (originalTime: string): string => {
     minute: '2-digit',
     hour12: false,
   });
+};
+
+// formats the location description
+export const formatLabelDescription = (city: City | undefined) => {
+  const tempCountry = city?.country ? city.country : '';
+  const separator = city?.admin1 ? " - " + city.admin1 : '';
+  const tempCountryCode = city?.countryCode ? " | " + city.countryCode : '';
+
+  return tempCountry + separator + tempCountryCode
 };

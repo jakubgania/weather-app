@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { defineProps } from 'vue';
 import { City } from '../types';
+import { formatLabelDescription } from '../utils';
 
 defineProps<{
   searchResults: City[];
@@ -21,9 +22,7 @@ defineProps<{
             <span class="text-lg font-semibold md:group-hover:pl-1 delay-75 ease-in duration-100">{{ city.cityName }}</span>
           </div>
           <div>
-            <!-- for some results there is no country value -->
-            <span v-if="city.country" class="text-sm font-medium md:group-hover:pl-1 delay-150 ease-in duration-100">{{ `${city.country} - ${city.admin1} | ${city.countryCode}` }}</span>
-            <span v-else class="text-sm font-medium md:group-hover:pl-1 delay-150 ease-in duration-100">{{ `${city.admin1} | ${city.countryCode}` }}</span>
+            <span class="text-sm font-medium md:group-hover:pl-1 delay-150 ease-in duration-100">{{ formatLabelDescription(city) }}</span>
           </div>
         </div>
         <div>

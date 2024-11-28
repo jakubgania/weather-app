@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { defineProps } from 'vue';
 import { City, WeatherApiResponse } from '../types';
+import { formatLabelDescription } from '../utils';
 
 defineProps<{
   currentCity: City;
@@ -34,12 +35,7 @@ defineProps<{
         Data for your current location: lat. {{ currentCity.latitude.toFixed(2) }} - lng. {{ currentCity.longitude.toFixed(2) }}
       </p>
       <p v-else class="text-sm text-gray-400">
-        <template v-if="currentCity.country">
-          {{ `${currentCity.country} - ${currentCity.admin1} | ${currentCity.countryCode}` }}
-        </template>
-        <template v-else>
-          {{ `${currentCity.admin1} | ${currentCity.countryCode}` }}
-        </template>
+        {{ formatLabelDescription(currentCity) }}
       </p>
     </div>
   </div>
