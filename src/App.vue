@@ -8,6 +8,7 @@ import { useGeoLocation } from './useGeoLocation';
 import { useSearchLocation } from './useSearchLocation';
 
 import SearchResultsList from './components/SearchResultsList.vue';
+import LocationLabel from './components/LocationLabel.vue';
 import GridDetails from './components/GridDetails.vue';
 import HourlyForecast from './components/HourlyForecast.vue';
 import DailyForecast from './components/DailyForecast.vue';
@@ -250,18 +251,19 @@ onMounted( async () => {
               autocomplete="off"
               :class="[
                 'w-full',
-                'p-3',
+                'py-3',
+                'pl-4',
                 'pr-12',
                 'placeholder-slate-400',
                 'font-semibold',
-                'rounded-xl',
+                'rounded-full',
                 'border',
                 'bg-transparent',
-                'border-slate-100',
+                'border-slate-200',
                 'focus:outline-none',
               ]"
             />
-            <img src="../src/assets/magnifier.png" class="absolute inset-y-3 right-0 w-9 pt-8 pr-3 my-auto" />
+            <img src="../src/assets/magnifier.png" class="absolute inset-y-3 right-1 w-9 pt-8 pr-3 my-auto" />
           </div>
         </div>
         <div class="mt-3">
@@ -315,34 +317,13 @@ onMounted( async () => {
             </template>
           </div>
         </div>
-        <div>
-          <div>
-            <div class="flex items-center">
-              <span class="text-3xl md:text-4xl font-semibold">
-                {{ currentCity.cityName }}:
-                {{ weatherAPIData ? transformNumber(weatherAPIData?.current.temperature_2m) : "n/a" }}&deg;
-              </span>
-              <img
-                v-if="weatherAPIData?.current.weather_code"
-                :src="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).image"
-                :alt="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).description"
-                class="w-16"
-              />
-            </div>
-          </div>
-          <p v-if="currentLocationFlag" class="text-sm text-gray-400">
-            Data for your current location: lat. {{ currentCity.latitude.toFixed(2) }} - lng. {{ currentCity.longitude.toFixed(2) }}
-          </p>
-          <p v-else class="text-sm text-gray-400">
-            <!-- for some results there is no country value -->
-            <template v-if="currentCity.country">
-              {{ `${currentCity.country} - ${currentCity.admin1} | ${currentCity.countryCode}` }}
-            </template>
-            <template v-else>
-              {{ `${currentCity.admin1} | ${currentCity.countryCode}` }}
-            </template>
-          </p>
-        </div>
+        <LocationLabel
+          :currentCity="currentCity"
+          :wheaterData="weatherAPIData"
+          :currentLocationFlag="currentLocationFlag"
+          :transformNumber="transformNumber"
+          :getWeatherDetails="getWeatherDetails"
+        />
         <GridDetails
           :weatherData="weatherAPIData"
           :formattedTime="formattedTime"
