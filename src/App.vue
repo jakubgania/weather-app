@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import iconsData from '../descriptions.json'
 
-import { onMounted, ref, computed, watch } from 'vue'
+import { onMounted, ref, computed, watch, reactive } from 'vue'
 
 import { useWeatherAPI } from './useWeatherAPI';
 import { useGeoLocation } from './useGeoLocation';
@@ -19,6 +19,14 @@ import {
   WeatherIconData,
 } from './types';
 
+import {
+  transformNumber,
+  getDayName,
+  formattedTime
+} from './utils';
+
+import { DEFAULT_COORDINATES } from './constants';
+
 const { weatherAPIData, fetchAPI } = useWeatherAPI();
 const { getBrowserCoordinates } = useGeoLocation();
 const { getCoordinates } = useSearchLocation()
@@ -28,54 +36,41 @@ const searchResults  =ref<City[]>([]);
 const searchBarValue = ref<string>('')
 const currentLocationFlag = ref<boolean>(true)
 const likedCities = ref<City[]>([]);
-const cityName = ref<string>('')
-const latitude = ref<number>(0)
-const longitude = ref<number>(0)
-const country = ref<string>('')
-const countryCode = ref<string>('')
-const admin1 = ref<string>('')
 
-const DEFAULT_COORDINATES = {
-  initLatitude: 51.5142,
-  initLongitude: 7.4684,
-  initCityName: 'Dortmund',
-  initCountry: 'Germany',
-  initCountryCode: 'DE',
-  initAdmin1: 'North Rhine-Westphalia'
-};
+const currentCity = reactive<City>({
+  cityName: '',
+  latitude: 0,
+  longitude: 0,
+  country: '',
+  countryCode: '',
+  admin1: '',
+})
 
 const addCity = (): void => {
-  if (!likedCities.value.some((item) => item.cityName === cityName.value)) {
-    likedCities.value.push({
-      latitude: latitude.value,
-      longitude: longitude.value,
-      cityName: cityName.value,
-      country: country.value,
-      countryCode: countryCode.value,
-      admin1: admin1.value
-    });
+  if (!checkIfCityIsAdded(currentCity.cityName)) {
+    likedCities.value.push({ ...currentCity });
 
-    alert(`You have added ${cityName.value} to your watch list ✅`)
+    alert(`You have added ${currentCity.cityName} to your watch list ✅`)
   } else {
     alert('This city is already added ⚠️')
   }
 }
 
 const removeCity = (): void => {
-  likedCities.value = likedCities.value.filter((item) => item.cityName !== cityName.value);
+  likedCities.value = likedCities.value.filter((item) => item.cityName !== currentCity.cityName);
 }
 
 const checkIfCityIsAdded = (city: string): boolean => likedCities.value.some((item) => item.cityName === city);
 
-// rounding the temperature to one digit
-const transformNumber = (temperature: number) => {
-  return Math.round(Number(temperature))
-}
-
 // combine the daily data arrays into one
 const combinedDailyData = computed<DailyData[]>(() => {
   if (weatherAPIData.value && weatherAPIData.value.daily) {
-    const { time, weather_code, temperature_2m_max, temperature_2m_min } = weatherAPIData.value.daily;
+    const {
+      time,
+      weather_code,
+      temperature_2m_max,
+      temperature_2m_min
+    } = weatherAPIData.value.daily;
     
     return time.map((t, index) => ({
       time: t,
@@ -91,7 +86,11 @@ const combinedDailyData = computed<DailyData[]>(() => {
 // combine the daily data arrays into one
 const combinedHourlyData = computed<HourlyData[]>(() => {
   if (weatherAPIData.value && weatherAPIData.value.daily) {
-    const { time, weather_code, temperature_2m } = weatherAPIData.value.hourly;
+    const {
+      time,
+      weather_code,
+      temperature_2m
+    } = weatherAPIData.value.hourly;
     const currentHour = new Date().getHours();
     const formatHour = (hour: number) => (hour < 10 ? `0${hour}` : `${hour}`);
     let counter = 0
@@ -123,12 +122,6 @@ const combinedHourlyData = computed<HourlyData[]>(() => {
   return [];
 });
 
-const getDayName = (isoDate: string): string => {
-  const date = new Date(isoDate);
-
-  return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date);
-}
-
 const searchLocation = async (): Promise<void> => {
   const locationName = searchBarValue.value;
   const coordinates = await getCoordinates(locationName);
@@ -140,27 +133,10 @@ const searchLocation = async (): Promise<void> => {
   return
 }
 
-const formattedTime = (originalTime: string): string => {
-  const dateObj = new Date(originalTime);
-
-  const formattedTime = dateObj.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
-
-  return formattedTime;
-}
-
 const showDetailsView = async (city: City): Promise<void> => {
   viewType.value = "details"
-  cityName.value = city.cityName
-  latitude.value = city.latitude
-  longitude.value = city.longitude
-  country.value = city.country
-  countryCode.value = city.countryCode
-  admin1.value = city.admin1
-
+  Object.assign(currentCity, city)
+  
   currentLocationFlag.value = false
 
   await fetchAPI(city.latitude, city.longitude)
@@ -174,7 +150,10 @@ const showSavedCities = (): void => {
   if (likedCities.value.length == 0) {
     alert("You haven't added any city yet")
   } else {
-    searchResults.value = likedCities.value.reverse()
+    // searchResults.value = likedCities.value.reverse()
+
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reverse
+    searchResults.value = [...likedCities.value].reverse()
   }
 }
 
@@ -194,7 +173,7 @@ const showDetailsForCurrentLocation = async (): Promise<void> => {
     viewType.value = "details"
 
     // thanks to this its possible add your current location to your favorites with the name 'your location'
-    cityName.value = "Your location"
+    currentCity.cityName = "Your location"
 
     await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
   } else {
@@ -213,12 +192,12 @@ const loadInitData = async (): Promise<void> => {
       initAdmin1
     } = DEFAULT_COORDINATES;
     
-    cityName.value = initCityName
-    latitude.value = initLatitude
-    longitude.value = initLongitude
-    country.value = initCountry
-    countryCode.value = initCountryCode
-    admin1.value = initAdmin1
+    currentCity.cityName = initCityName;
+    currentCity.latitude = initLatitude;
+    currentCity.longitude = initLongitude;
+    currentCity.country = initCountry;
+    currentCity.countryCode = initCountryCode;
+    currentCity.admin1 = initAdmin1;
 
     currentLocationFlag.value = false
 
@@ -240,12 +219,12 @@ onMounted( async () => {
   const currentCoordinates = await getBrowserCoordinates();
 
   if (currentCoordinates) {
-    cityName.value = "Your location"
-    latitude.value = currentCoordinates.latitude
-    longitude.value = currentCoordinates.longitude
-    country.value = ''
-    countryCode.value = ''
-    admin1.value = ''
+    currentCity.cityName = "Your location";
+    currentCity.latitude = currentCoordinates.latitude;
+    currentCity.longitude = currentCoordinates.longitude;
+    currentCity.country = '';
+    currentCity.countryCode = '';
+    currentCity.admin1 = '';
 
     await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
   } else {
@@ -326,11 +305,11 @@ onMounted( async () => {
             </button>
           </div>
           <div class="flex items-center gap-2">
-            <template v-if="!checkIfCityIsAdded(cityName)">
+            <template v-if="!checkIfCityIsAdded(currentCity.cityName)">
               <button @click="addCity()">Save</button>
               <img src="../src/assets/add.png" class="w-5" />
             </template>
-            <template v-if="checkIfCityIsAdded(cityName)">
+            <template v-if="checkIfCityIsAdded(currentCity.cityName)">
               <button @click="removeCity()">Remove</button>
               <img src="../src/assets/minus.png" class="w-5" />
             </template>
@@ -340,7 +319,7 @@ onMounted( async () => {
           <div>
             <div class="flex items-center">
               <span class="text-3xl md:text-4xl font-semibold">
-                {{ cityName }}:
+                {{ currentCity.cityName }}:
                 {{ weatherAPIData ? transformNumber(weatherAPIData?.current.temperature_2m) : "n/a" }}&deg;
               </span>
               <img
@@ -352,15 +331,15 @@ onMounted( async () => {
             </div>
           </div>
           <p v-if="currentLocationFlag" class="text-sm text-gray-400">
-            Data for your current location: lat. {{ latitude.toFixed(2) }} - lng. {{ longitude.toFixed(2) }}
+            Data for your current location: lat. {{ currentCity.latitude.toFixed(2) }} - lng. {{ currentCity.longitude.toFixed(2) }}
           </p>
           <p v-else class="text-sm text-gray-400">
             <!-- for some results there is no country value -->
-            <template v-if="country">
-              {{ `${country} - ${admin1} | ${countryCode}` }}
+            <template v-if="currentCity.country">
+              {{ `${currentCity.country} - ${currentCity.admin1} | ${currentCity.countryCode}` }}
             </template>
             <template v-else>
-              {{ `${admin1} | ${countryCode}` }}
+              {{ `${currentCity.admin1} | ${currentCity.countryCode}` }}
             </template>
           </p>
         </div>
