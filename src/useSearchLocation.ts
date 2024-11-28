@@ -24,10 +24,12 @@ export function useSearchLocation() {
 				return results;
 			} else {
 				alert('Location not found!');
+
 				return null
 			} 
 		} catch (error) {
 			console.error('Error fetching coordinates:', error);
+			
       return null;
 		}
   };

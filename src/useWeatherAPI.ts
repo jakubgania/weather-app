@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import {WeatherApiResponse} from './WeatherApiResponse'
+import { WeatherApiResponse } from './types'
 
 export function useWeatherAPI() {
     const weatherAPIData = ref<WeatherApiResponse | null>(null);

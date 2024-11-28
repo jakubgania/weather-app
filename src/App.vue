@@ -1,33 +1,26 @@
 <script setup lang="ts">
 import iconsData from '../descriptions.json'
+
 import { onMounted, ref, computed, watch } from 'vue'
+
 import { useWeatherAPI } from './useWeatherAPI';
 import { useGeoLocation } from './useGeoLocation';
 import { useSearchLocation } from './useSearchLocation';
 
+import GridDetails from './components/GridDetails.vue';
+import HourlyForecast from './components/HourlyForecast.vue';
+import DailyForecast from './components/DailyForecast.vue';
+
+import {
+  City,
+  HourlyData,
+  DailyData,
+  WeatherIconData,
+} from './types';
+
 const { weatherAPIData, fetchAPI } = useWeatherAPI();
 const { getBrowserCoordinates } = useGeoLocation();
 const { getCoordinates } = useSearchLocation()
-
-interface City {
-  latitude: number;
-  longitude: number;
-  cityName: string;
-  country: string;
-  countryCode: string,
-  admin1: string;
-}
-
-type WeatherIconData = {
-  day: {
-    description: string;
-    image: string
-  };
-  night: {
-    description: string;
-    image: string
-  };
-};
 
 const viewType = ref<string>('details')
 const searchResults  =ref<City[]>([]);
@@ -50,15 +43,15 @@ const DEFAULT_COORDINATES = {
   initAdmin1: 'North Rhine-Westphalia'
 };
 
-const addCity = () => {
+const addCity = (): void => {
   if (!likedCities.value.some((item) => item.cityName === cityName.value)) {
     likedCities.value.push({
       latitude: latitude.value,
       longitude: longitude.value,
       cityName: cityName.value,
-      country: "",
-      countryCode: "",
-      admin1: ""
+      country: country.value,
+      countryCode: countryCode.value,
+      admin1: admin1.value
     });
 
     alert(`You have added ${cityName.value} to your watch list ✅`)
@@ -67,17 +60,11 @@ const addCity = () => {
   }
 }
 
-const removeCity = () => {
+const removeCity = (): void => {
   likedCities.value = likedCities.value.filter((item) => item.cityName !== cityName.value);
 }
 
-const checkIfCityIsAdded = (city: string): boolean => {
-  if (likedCities.value.some((item) => item.cityName === city)) {
-    return true
-  }
-
-  return false
-}
+const checkIfCityIsAdded = (city: string): boolean => likedCities.value.some((item) => item.cityName === city);
 
 // rounding the temperature to one digit
 const transformNumber = (temperature: number) => {
@@ -85,7 +72,7 @@ const transformNumber = (temperature: number) => {
 }
 
 // combine the daily data arrays into one
-const combinedDailyData = computed(() => {
+const combinedDailyData = computed<DailyData[]>(() => {
   if (weatherAPIData.value && weatherAPIData.value.daily) {
     const { time, weather_code, temperature_2m_max, temperature_2m_min } = weatherAPIData.value.daily;
     
@@ -101,7 +88,7 @@ const combinedDailyData = computed(() => {
 });
 
 // combine the daily data arrays into one
-const combinedHourlyData = computed(() => {
+const combinedHourlyData = computed<HourlyData[]>(() => {
   if (weatherAPIData.value && weatherAPIData.value.daily) {
     const { time, weather_code, temperature_2m } = weatherAPIData.value.hourly;
     const currentHour = new Date().getHours();
@@ -153,7 +140,7 @@ const searchLocation = async (): Promise<void> => {
   return
 }
 
-const formattedTime = (originalTime: string) => {
+const formattedTime = (originalTime: string): string => {
   const dateObj = new Date(originalTime);
 
   const formattedTime = dateObj.toLocaleTimeString('en-US', {
@@ -165,7 +152,6 @@ const formattedTime = (originalTime: string) => {
   return formattedTime;
 }
 
-// const showDetailsView = async (latitudeVal: number, longitudeVal: number, city: string, country: string, countryCode: string, admin1: string): Promise<void> => {
 const showDetailsView = async (city: City): Promise<void> => {
   viewType.value = "details"
   cityName.value = city.cityName
@@ -180,11 +166,11 @@ const showDetailsView = async (city: City): Promise<void> => {
   await fetchAPI(city.latitude, city.longitude)
 }
 
-const returnToSearchView = () => {
+const returnToSearchView = (): void => {
   viewType.value = "search"
 }
 
-const showSavedCities = () => {
+const showSavedCities = (): void => {
   if (likedCities.value.length == 0) {
     alert("You haven't added any city yet")
   } else {
@@ -264,163 +250,130 @@ onMounted( async () => {
       <h1 class="font-bold pb-4 text-[3.2rem]">Weather App</h1>
       <img src="../src/assets/windsock.gif" class="w-12 -mt-2" />
     </div>
-    <div v-if="viewType === 'search'">
-      <div>
-        <div class="relative pt-8">
-          <input type="text" v-model="searchBarValue" placeholder="Type city" autocomplete="off" class="w-full p-3 pr-12 placeholder-slate-400 font-semibold rounded-xl border border-slate-100 focus:outline-none" />
-          <img src="../src/assets/magnifier.png" class="absolute inset-y-3 right-0 w-9 pt-8 pr-3 my-auto" />
-        </div>
-      </div>
-      <div class="mt-3">
-        <div class="flex gap-2 text-sm">
-          <div>
-            <button @click="showSavedCities()" class="p-2 font-bold rounded-xl bg-slate-50">Show saved</button>
-          </div>
-          <div>
-            <button @click="showDetailsForCurrentLocation()" class="p-2 font-bold rounded-xl bg-slate-50">Use my location</button>
-          </div>
-        </div>
-      </div>
-      <div>
-        <ul class="pt-6">
-          <li v-for="(city, index) in searchResults" :key="index" class="bg-slate-50 rounded-xl w-full mb-2">
-            <div @click="showDetailsView(city)" class="flex items-center justify-between py-3 cursor-default hover:bg-slate-100 hover:rounded-xl">
-              <div class="pl-2">
-                <div>
-                  <span class="font-semibold">{{ city.cityName }}</span>
-                </div>
-                <div>
-                  <span class="text-sm font-medium">{{ `${city.country} - ${city.admin1} | ${city.countryCode}` }}</span>
-                </div>
-              </div>
-              <div>
-                <img src="../src/assets/chevron-right.png" class="w-6 pr-2" />
-              </div>
-            </div>
-          </li>
-        </ul>
-      </div>
-    </div>
-    <div v-if="viewType === 'details'" class="flex flex-col gap-8">
-      <div class="flex justify-between text-xl pt-8">
-        <div class="flex items-center gap-2">
-          <img src="../src/assets/chevron-right.png" class="w-5 rotate-180" />
-          <button @click="returnToSearchView()" class="text-blue-500">Return to search</button>
-        </div>
-        <div class="flex items-center gap-2">
-          <template v-if="!checkIfCityIsAdded(cityName)">
-            <button @click="addCity()">Save</button>
-            <img src="../src/assets/add.png" class="w-5" />
-          </template>
-          <template v-if="checkIfCityIsAdded(cityName)">
-            <button @click="removeCity()">Remove</button>
-            <img src="../src/assets/minus.png" class="w-5" />
-          </template>
-        </div>
-      </div>
+    <template v-if="viewType === 'search'">
       <div>
         <div>
-          <div class="flex items-center">
-            <span class="text-4xl font-semibold">
-              {{ cityName }}:
-              {{ weatherAPIData ? transformNumber(weatherAPIData?.current.temperature_2m) : "n/a" }}&deg;
-            </span>
-            <img
-              v-if="weatherAPIData?.current.weather_code"
-              :src="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).image"
-              :alt="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).description"
-              class="w-16"
+          <div class="relative pt-8">
+            <input
+              type="search"
+              v-model="searchBarValue"p
+              laceholder="Type city"
+              autocomplete="off"
+              :class="[
+                'w-full',
+                'p-3',
+                'pr-12',
+                'placeholder-slate-400',
+                'font-semibold',
+                'rounded-xl',
+                'border',
+                'border-slate-100',
+                'focus:outline-none',
+              ]"
             />
+            <img src="../src/assets/magnifier.png" class="absolute inset-y-3 right-0 w-9 pt-8 pr-3 my-auto" />
           </div>
         </div>
-        <p v-if="currentLocationFlag" class="text-sm text-gray-400">Data for your current location</p>
-        <p v-else class="text-sm text-gray-400">{{ `${country} - ${admin1} | ${countryCode}` }}</p>
-      </div>
-      <div>
-        <div class="grid grid-cols-2 gap-2">
-          <div class="rounded-lg p-4 bg-slate-50">
-            <div class="pb-2">
-              <h3 class="tracking-wide text-xl text-slate-400">Sunrise</h3>
+        <div class="mt-3">
+          <div class="flex gap-2 text-sm">
+            <div>
+              <button
+                @click="showSavedCities()"
+                class="p-2 font-bold rounded-xl bg-slate-50"
+              >
+                Show saved
+              </button>
             </div>
-            <div class="flex items-center gap-4">
-              <img src="../src/assets/sunrise.png" class="w-8" />
-              <span class="text-4xl">{{ formattedTime(weatherAPIData ? weatherAPIData?.daily.sunrise[0] : "n/a") }}</span>
-            </div>
-          </div>
-          <div class="rounded-lg p-4 bg-slate-50">
-            <div class="pb-2">
-              <h3 class="tracking-wide text-xl text-slate-400">Sunset</h3>
-            </div>
-            <div class="flex items-center gap-4">
-              <img src="../src/assets/sunset.png" class="w-8" />
-              <span class="text-4xl">{{ formattedTime(weatherAPIData ? weatherAPIData?.daily.sunset[0] : "n/a") }}</span>
-            </div>
-          </div>
-          <div class="rounded-lg p-4 bg-slate-50">
-            <div class="pb-2">
-              <h3 class="tracking-wide text-xl text-slate-400">Wind speed</h3>
-            </div>
-            <div class="flex items-center gap-4">
-              <img src="../src/assets/wind.png" class="w-8" />
-              <span class="text-4xl">{{ weatherAPIData ? weatherAPIData?.current.wind_speed_10m + " km/h" : "n/a" }}</span>
-            </div>
-          </div>
-          <div class="rounded-lg p-4 bg-slate-50">
-            <div class="pb-2">
-              <h3 class="tracking-wide text-xl text-slate-400">Humidity</h3>
-            </div>
-            <div class="flex items-center gap-4">
-              <img src="../src/assets/humidity.png" class="w-8" />
-              <span class="text-4xl">{{ weatherAPIData ? weatherAPIData?.current.relative_humidity_2m + " %" : "n/a" }}</span>
+            <div>
+              <button
+                @click="showDetailsForCurrentLocation()"
+                class="p-2 font-bold rounded-xl bg-slate-50"
+              >
+                Use my location
+              </button>
             </div>
           </div>
         </div>
-      </div>
-      <div>
-        <p class="text-sm font-medium text-gray-400 pb-2">HOURLY FORECAST</p>
-        <div class="overflow-x-auto flex gap-4 pb-8">
-          <div v-for="(item, index) in combinedHourlyData.slice(0, 24)" :key="index" class="flex-shrink-0 bg-slate-50 rounded-xl aspect-square w-28">
-            <div class="flex flex-col space-y-0">
-              <div class="flex justify-center pt-1">
-                <span class="medium text-slate-400">{{ index == 0 ? "now" : item.time }}</span>
+        <div>
+          <ul class="pt-6">
+            <li
+              v-for="(city, index) in searchResults"
+              :key="index"
+              class="bg-slate-50 rounded-xl w-full mb-2"
+            >
+              <div @click="showDetailsView(city)" class="flex items-center justify-between py-3 cursor-default hover:bg-slate-100 hover:rounded-xl">
+                <div class="pl-2">
+                  <div>
+                    <span class="font-semibold">{{ city.cityName }}</span>
+                  </div>
+                  <div>
+                    <span class="text-sm font-medium">{{ `${city.country} - ${city.admin1} | ${city.countryCode}` }}</span>
+                  </div>
+                </div>
+                <div>
+                  <img src="../src/assets/chevron-right.png" class="w-6 pr-2" />
+                </div>
               </div>
-              <div class="flex justify-center">
-                <img
-                  :src="getWeatherDetails(String(item.weather_code), true).image"
-                  :alt="getWeatherDetails(String(item.weather_code), true).description"
-                  class="w-16 contrast-50"
-                />
-              </div>
-              <div class="flex justify-center pb-1">
-                <span class="font-medium">{{ item.temperature_2m }}&deg;</span>
-              </div>
-            </div>
-          </div>
+            </li>
+          </ul>
         </div>
       </div>
-      <div>
-        <p class="text-sm font-medium text-gray-400 pb-2">DAILY FORECAST</p>
-        <ul>
-          <li v-for="(day, index) in combinedDailyData" :key="index" class="border-b border-gray-100 last:border-b-0">
-            <div class="flex items-center py-3 text-2xl">
-              <div class="basis-1/4">
-                <span class="font-medium">{{ getDayName(day.time) }}</span> 
-              </div>
-              <div class="basis-1/4">
-                <img
-                  :src="getWeatherDetails(String(day.weather_code), false).image"
-                  :alt="getWeatherDetails(String(day.weather_code), false).description"
-                  class="w-16"
-                />
-              </div>
-              <div class="basis-1/2 tracking-wide">
-                <span class="pl-8">{{ day.temperature_2m_min + "°C &nbsp; - &nbsp; " + day.temperature_2m_max }}°C</span>
-              </div>
+    </template>
+    <template v-if="viewType === 'details'">
+      <div class="flex flex-col gap-8">
+        <div class="flex justify-between text-xl pt-8">
+          <div class="flex items-center gap-2">
+            <img src="../src/assets/chevron-right.png" class="w-5 rotate-180" />
+            <button @click="returnToSearchView()" class="text-blue-500">Return to search</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <template v-if="!checkIfCityIsAdded(cityName)">
+              <button @click="addCity()">Save</button>
+              <img src="../src/assets/add.png" class="w-5" />
+            </template>
+            <template v-if="checkIfCityIsAdded(cityName)">
+              <button @click="removeCity()">Remove</button>
+              <img src="../src/assets/minus.png" class="w-5" />
+            </template>
+          </div>
+        </div>
+        <div>
+          <div>
+            <div class="flex items-center">
+              <span class="text-4xl font-semibold">
+                {{ cityName }}:
+                {{ weatherAPIData ? transformNumber(weatherAPIData?.current.temperature_2m) : "n/a" }}&deg;
+              </span>
+              <img
+                v-if="weatherAPIData?.current.weather_code"
+                :src="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).image"
+                :alt="getWeatherDetails(String(weatherAPIData?.current.weather_code), true).description"
+                class="w-16"
+              />
             </div>
-          </li>
-        </ul>
+          </div>
+          <p v-if="currentLocationFlag" class="text-sm text-gray-400">
+            Data for your current location
+          </p>
+          <p v-else class="text-sm text-gray-400">
+            {{ `${country} - ${admin1} | ${countryCode}` }}
+          </p>
+        </div>
+        <GridDetails
+          :weatherData="weatherAPIData"
+          :formattedTime="formattedTime"
+        />
+        <HourlyForecast
+          :hourlyData="combinedHourlyData"
+          :getWeatherDetails="getWeatherDetails"
+        />
+        <DailyForecast
+          :dailyData="combinedDailyData"
+          :getDayName="getDayName"
+          :getWeatherDetails="getWeatherDetails"
+        />
       </div>
-    </div>
+    </template>
   </div>
   <!-- <HelloWorld msg="Vite + Vue" /> -->
 </template>
