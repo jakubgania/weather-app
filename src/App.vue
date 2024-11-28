@@ -7,6 +7,7 @@ import { useWeatherAPI } from './useWeatherAPI';
 import { useGeoLocation } from './useGeoLocation';
 import { useSearchLocation } from './useSearchLocation';
 
+import SearchResultsList from './components/SearchResultsList.vue';
 import GridDetails from './components/GridDetails.vue';
 import HourlyForecast from './components/HourlyForecast.vue';
 import DailyForecast from './components/DailyForecast.vue';
@@ -121,7 +122,6 @@ const combinedHourlyData = computed<HourlyData[]>(() => {
 
   return [];
 });
-
 
 const getDayName = (isoDate: string): string => {
   const date = new Date(isoDate);
@@ -238,7 +238,6 @@ const getWeatherDetails = (weatherCode: string, checkDay: boolean) => {
 
 onMounted( async () => {
   const currentCoordinates = await getBrowserCoordinates();
-  console.log(currentCoordinates)
 
   if (currentCoordinates) {
     cityName.value = "Your location"
@@ -307,27 +306,10 @@ onMounted( async () => {
           </div>
         </div>
         <div>
-          <ul class="pt-6">
-            <li
-              v-for="(city, index) in searchResults"
-              :key="index"
-              class="bg-slate-50 rounded-xl w-full mb-2"
-            >
-              <div @click="showDetailsView(city)" class="flex items-center justify-between py-3 cursor-default hover:bg-slate-100 hover:rounded-xl">
-                <div class="pl-2">
-                  <div>
-                    <span class="font-semibold">{{ city.cityName }}</span>
-                  </div>
-                  <div>
-                    <span class="text-sm font-medium">{{ `${city.country} - ${city.admin1} | ${city.countryCode}` }}</span>
-                  </div>
-                </div>
-                <div>
-                  <img src="../src/assets/chevron-right.png" class="w-6 pr-2" />
-                </div>
-              </div>
-            </li>
-          </ul>
+          <SearchResultsList
+            :searchResults="searchResults"
+            :onCitySelect="showDetailsView"
+          />
         </div>
       </div>
     </template>
@@ -336,7 +318,12 @@ onMounted( async () => {
         <div class="flex justify-between text-lg md:text-xl pt-8">
           <div class="flex items-center gap-2">
             <img src="../src/assets/chevron-right.png" class="w-5 rotate-180 -ml-1" />
-            <button @click="returnToSearchView()" class="text-blue-500">Return to search</button>
+            <button
+              @click="returnToSearchView()"
+              class="text-blue-500"
+            >
+              Return to search
+            </button>
           </div>
           <div class="flex items-center gap-2">
             <template v-if="!checkIfCityIsAdded(cityName)">
@@ -365,10 +352,16 @@ onMounted( async () => {
             </div>
           </div>
           <p v-if="currentLocationFlag" class="text-sm text-gray-400">
-            Data for your current location
+            Data for your current location: lat. {{ latitude.toFixed(2) }} - lng. {{ longitude.toFixed(2) }}
           </p>
           <p v-else class="text-sm text-gray-400">
-            {{ `${country} - ${admin1} | ${countryCode}` }}
+            <!-- for some results there is no country value -->
+            <template v-if="country">
+              {{ `${country} - ${admin1} | ${countryCode}` }}
+            </template>
+            <template v-else>
+              {{ `${admin1} | ${countryCode}` }}
+            </template>
           </p>
         </div>
         <GridDetails
