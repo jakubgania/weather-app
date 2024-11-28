@@ -307,7 +307,7 @@ onMounted( async () => {
               @click="returnToSearchView()"
               class="text-blue-500"
             >
-              Return to search
+              Search
             </button>
           </div>
           <div class="flex items-center gap-2">
