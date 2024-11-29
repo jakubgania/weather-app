@@ -1,3 +1,4 @@
+export const API_SEARCH_ENDPOINT = 'https://geocoding-api.open-meteo.com/v1/search'
 
 export const DEFAULT_COORDINATES = {
   initLatitude: 51.5142 as number,

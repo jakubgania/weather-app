@@ -1,18 +1,32 @@
+import { City, GeocodingApiResponse } from './types'
+import { API_SEARCH_ENDPOINT } from './constants';
 
 export function useSearchLocation() {
-  const getCoordinates = async (locationName: string): Promise<{ latitude: number; longitude: number; cityName: string, country: string, countryCode: string, admin1: string}[] | null> => {
+  const getCoordinates = async (locationName: string): Promise<City[] | null> => {
 		if (!locationName) {
 			alert('Search bar is empty!')
 			return null
 		}
 
-		try {
-			const numberOfItems = 8;
-			const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${locationName}&count=${numberOfItems}&language=en&format=json`);
-			const data = await response.json()
+		const numberOfItems = 8;
+    const params = new URLSearchParams({
+      name: locationName,
+      count: String(numberOfItems),
+      language: 'en',
+      format: 'json'
+    })
 
-			if (data.results && data.results.length > 0) {
-				const results = data.results.map((result: any) => ({
+		try {
+			const response = await fetch(API_SEARCH_ENDPOINT + '?' + params.toString())
+
+			if (!response.ok) {
+				throw new Error(`API error: ${response.statusText}`)
+			}
+			
+			const data: GeocodingApiResponse = await response.json()
+
+			if (data.results?.length > 0) {
+				return data.results.map((result) => ({
 					latitude: result.latitude,
 					longitude: result.longitude,
 					cityName: result.name,
@@ -20,8 +34,6 @@ export function useSearchLocation() {
 					countryCode: result.country_code,
 					admin1: result.admin1
 				}))
-	
-				return results;
 			} else {
 				alert('Location not found!');
 
