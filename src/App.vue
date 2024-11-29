@@ -38,6 +38,8 @@ const searchBarValue = ref<string>('')
 const currentLocationFlag = ref<boolean>(true)
 const likedCities = ref<City[]>([]);
 
+const isLoading = ref<boolean>(true);
+
 const currentCity = reactive<City>({
   cityName: '',
   latitude: 0,
@@ -139,8 +141,16 @@ const showDetailsView = async (city: City): Promise<void> => {
   Object.assign(currentCity, city)
   
   currentLocationFlag.value = false
+  isLoading.value = true
 
-  await fetchAPI(city.latitude, city.longitude)
+  try {
+    await fetchAPI(city.latitude, city.longitude)
+  } catch(error) {
+    console.error("Error fetching API data:", error);
+    alert("Failed to load weather data. Please try again.");
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const returnToSearchView = (): void => {
@@ -168,6 +178,7 @@ watch(searchBarValue, async () => {
 })
 
 const showDetailsForCurrentLocation = async (): Promise<void> => {
+  isLoading.value = true
   const currentCoordinates = await getBrowserCoordinates();
 
   if (currentCoordinates) {
@@ -180,7 +191,14 @@ const showDetailsForCurrentLocation = async (): Promise<void> => {
     currentCity.countryCode = ''
     currentCity.admin1 = ''
 
-    await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
+    try {
+      await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
+    } catch(error) {
+      console.error("Error fetching current location data:", error);
+      alert("Failed to load your location's weather data. Please try again.");
+    } finally {
+      isLoading.value = false
+    }
   } else {
     viewType.value = "details"
     await loadInitData()
@@ -205,8 +223,15 @@ const loadInitData = async (): Promise<void> => {
     currentCity.admin1 = initAdmin1;
 
     currentLocationFlag.value = false
-
-    await fetchAPI(initLatitude, initLongitude)
+    
+    try {
+      await fetchAPI(initLatitude, initLongitude)
+    } catch(error) {
+      console.error("Error loading initial data:", error);
+      alert("Failed to load initial weather data. Please try again.");
+    } finally {
+      isLoading.value = false
+    }
 }
 
 const getWeatherDetails = (weatherCode: string, checkDay: boolean) => {
@@ -231,7 +256,14 @@ onMounted( async () => {
     currentCity.countryCode = '';
     currentCity.admin1 = '';
 
-    await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
+    try {
+      await fetchAPI(currentCoordinates.latitude, currentCoordinates.longitude)
+    } catch (error) {
+      console.error("Error loading initial data:", error);
+      alert("Failed to load initial weather data. Please try again.");
+    } finally {
+      isLoading.value = false
+    }
   } else {
     await loadInitData()
   }
@@ -239,7 +271,10 @@ onMounted( async () => {
 </script>
 
 <template>
-  <div class="w-full max-w-[640px] p-4 my-10 md:my-14 lg:my-20 ml-auto mr-auto">
+  <div v-if="isLoading" class="flex justify-center items-center h-screen">
+    <div class="loader"></div>
+  </div>
+  <div v-else class="w-full max-w-[640px] p-4 my-10 md:my-14 lg:my-20 ml-auto mr-auto">
     <div class="flex items-center gap-4">
       <h1 class="font-bold pb-4 text-4xl md:text-5xl lg:text-[3.2rem]">Weather App</h1>
       <img src="../src/assets/windsock.gif" class="w-8 md:w-10 lg:w-12 -mt-2" />
@@ -341,10 +376,26 @@ onMounted( async () => {
           :getDayName="getDayName"
           :getWeatherDetails="getWeatherDetails"
         />
+        <div>
+          <p class="text-sm">Data source: <a href="https://open-meteo.com" target="_blank" class="text-blue-500">Open-Meteo</a></p>
+        </div>
       </div>
     </template>
   </div>
 </template>
 
-<!-- <style scoped>
-</style> -->
+<style scoped>
+/* https://css-loaders.com/dots/ */
+.loader {
+  width: 15px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  animation: l5 1s infinite linear alternate;
+}
+@keyframes l5 {
+    0%  {box-shadow: 20px 0 #000, -20px 0 #0002;background: #000 }
+    33% {box-shadow: 20px 0 #000, -20px 0 #0002;background: #0002}
+    66% {box-shadow: 20px 0 #0002,-20px 0 #000; background: #0002}
+    100%{box-shadow: 20px 0 #0002,-20px 0 #000; background: #000 }
+}
+</style>

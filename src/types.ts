@@ -52,7 +52,7 @@ export interface WeatherApiResponse {
   };
 };
 
-// City details
+// city details
 export interface City {
   latitude: number;
   longitude: number;
@@ -75,7 +75,7 @@ export type HourlyData = {
   temperature_2m: number
 }
 
-// Weather icon details
+// weather icon details
 export type WeatherIconData = {
   day: {
     description: string;

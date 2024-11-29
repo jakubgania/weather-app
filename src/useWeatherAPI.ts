@@ -41,7 +41,8 @@ export function useWeatherAPI() {
       const data = await response.json()
       weatherAPIData.value = data
     } catch (error) {
-      console.error('Error fetching weather data:', error);
+      console.error("Error in fetchAPI:", error);
+      throw error
     }
   };
 
