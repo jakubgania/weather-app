@@ -1,3 +1,51 @@
+
+export interface Units {
+  time: string;
+  temperature_2m: string;
+  weather_code: string;
+}
+
+export interface CurrentUnits extends Units {
+  interval: string;
+  relative_humidity_2m: string;
+  is_day: string;
+  wind_speed_10m: string;
+}
+
+export interface HourlyUnits extends Units {}
+
+export interface DailyUnits extends Units {
+  temperature_2m_max: string;
+  temperature_2m_min: string;
+  sunrise: string;
+  sunset: string;
+}
+
+export interface CurrentWeather {
+  time: string;
+  interval: number;
+  temperature_2m: number;
+  relative_humidity_2m: number;
+  is_day: number;
+  weather_code: number;
+  wind_speed_10m: number;
+}
+
+export interface HourlyWeather {
+  time: string[];
+  temperature_2m: number[];
+  weather_code: number[];
+}
+
+export interface DailyWeather {
+  time: string[];
+  weather_code: number[];
+  temperature_2m_max: number[];
+  temperature_2m_min: number[];
+  sunrise: string[];
+  sunset: string[]
+}
+
 export interface WeatherApiResponse {
   latitude: number;
   longitude: number;
@@ -6,50 +54,12 @@ export interface WeatherApiResponse {
   timezone: string;
   timezone_abbreviation: string;
   elevation: number;
-  current_units: {
-    time: string;
-    interval: string;
-    temperature_2m: string;
-    relative_humidity_2m: string;
-    is_day: string;
-    weather_code: string;
-    wind_speed_10m: string;
-  };
-  current: {
-    time: string;
-    interval: number;
-    temperature_2m: number;
-    relative_humidity_2m: number;
-    is_day: number;
-    weather_code: number;
-    wind_speed_10m: number;
-  };
-  hourly_units: {
-    time: string;
-    temperature_2m: string;
-    weather_code: string;
-  };
-  hourly: {
-    time: string[];
-    temperature_2m: number[];
-    weather_code: number[];
-  };
-  daily_units: {
-    time: string;
-    weather_code: string;
-    temperature_2m_max: string;
-    temperature_2m_min: string;
-    sunrise: string;
-    sunset: string;
-  };
-  daily: {
-    time: string[];
-    weather_code: number[];
-    temperature_2m_max: number[];
-    temperature_2m_min: number[];   
-    sunrise: string[];
-    sunset: string[];
-  };
+  current_units: CurrentUnits;
+  current: CurrentWeather;
+  hourly_units: HourlyUnits;
+  hourly: HourlyWeather;
+  daily_units: DailyUnits;
+  daily: DailyWeather;
 };
 
 // city details
